@@ -4,7 +4,7 @@
 for GitHub Action runs by retrieving the metadata from GitHub
 API.
 
-![Jaeger](https://imgur.com/IXIdXTx.png)
+![Jaeger](https://imgur.com/6fJ3iui.png)
 
 ## Installation
 
@@ -38,3 +38,5 @@ Processing 30 runs out of 7456 for workflow Static checks
 Processing 30 runs out of 7402 for workflow Unit tests
 Processing 30 runs out of 1262 for workflow CI
 ```
+
+You should be able to see traces in the Jaeger UI. :)
