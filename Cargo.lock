@@ -381,6 +381,7 @@ dependencies = [
  "octocrab",
  "opentelemetry",
  "opentelemetry-jaeger",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-opentelemetry",

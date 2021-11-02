@@ -98,67 +98,7 @@ async fn main() -> Result<()> {
                     ))
                     .with_start_time(job.started_at)
                     .with_end_time(job.completed_at.unwrap())
-                    .with_attributes(vec![
-                        KeyValue {
-                            key: "job.id".into(),
-                            value: job.id.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.name".into(),
-                            value: job.name.clone().into(),
-                        },
-                        KeyValue {
-                            key: "job.head_sha".into(),
-                            value: job.head_sha.into(),
-                        },
-                        KeyValue {
-                            key: "job.run_id".into(),
-                            value: job.run_id.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.status".into(),
-                            value: job.status.clone().into(),
-                        },
-                        KeyValue {
-                            key: "job.conclusion".into(),
-                            value: job.conclusion.unwrap_or_default().into(),
-                        },
-                        KeyValue {
-                            key: "job.started_at".into(),
-                            value: job.started_at.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.completed_at".into(),
-                            value: job.completed_at.unwrap().to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.url".into(),
-                            value: job.url.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.html_url".into(),
-                            value: job.html_url.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.run_url".into(),
-                            value: job.run_url.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.check_run_url".into(),
-                            value: job.check_run_url.to_string().into(),
-                        },
-                        KeyValue {
-                            key: "job.steps".into(),
-                            value: job
-                                .steps
-                                .clone()
-                                .into_iter()
-                                .map(|s| s.name)
-                                .collect::<Vec<_>>()
-                                .join(",")
-                                .into(),
-                        },
-                    ])
+                    .with_attributes(value_to_vec(&serde_json::to_value(&job).unwrap()))
                     .with_status_message(job.status.to_string());
 
                 tracer.build(builder);
@@ -174,7 +114,7 @@ async fn main() -> Result<()> {
             }
 
             let builder = tracer
-                .span_builder(run.name)
+                .span_builder(run.name.clone())
                 .with_span_id(opentelemetry::trace::SpanId::from_hex(
                     run.id.to_string().as_str(),
                 ))
@@ -182,11 +122,26 @@ async fn main() -> Result<()> {
                     run.id.to_string().as_str(),
                 ))
                 .with_start_time(run.created_at)
-                .with_end_time(last_end_time);
+                .with_end_time(last_end_time)
+                .with_attributes(value_to_vec(&serde_json::to_value(&run).unwrap()));
 
             tracer.build(builder);
         }
     }
 
     return Ok(());
+}
+
+// value_to_vec converts a serde Value into a Vec of KeyValue
+// that can be passed in as SpanAttributes
+fn value_to_vec(value: &serde_json::Value) -> Vec<KeyValue> {
+    value
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(k, v)| KeyValue {
+            key: k.to_string().into(),
+            value: v.to_string().into(),
+        })
+        .collect()
 }
