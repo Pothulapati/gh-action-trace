@@ -1,10 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
 use opentelemetry::trace::Tracer;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::Registry;
 
 /// `gh-action-trace` is used to create traces for GitHub Action runs
 /// by talking to the GitHub API and getting the metadata. This is
@@ -31,7 +29,17 @@ struct Opts {
 #[tokio::main]
 async fn main() -> Result<()> {
     // parse arguments
-    let opts: Opts = Opts::parse();
+    let mut opts: Opts = Opts::parse();
+    if opts.token.is_none() {
+        match std::env::var("GITHUB_ACCESS_TOKEN") {
+            Ok(token) => {
+                opts.token = Some(token);
+            }
+            Err(_) => {
+                println!("No token provided, falling back to no-auth");
+            }
+        }
+    }
 
     // Initialize octocrab instance
     let mut instance = octocrab::Octocrab::builder().build()?;
@@ -43,16 +51,11 @@ async fn main() -> Result<()> {
 
     // Install a new OpenTelemetry trace pipeline
     //let tracer = stdout::new_pipeline().install_simple();
-    let tracer = opentelemetry_jaeger::new_pipeline()
+    let trace_provider = opentelemetry_jaeger::new_pipeline()
         .with_service_name(format!("{}/{}", opts.owner, opts.repo))
-        .install_simple()?;
+        .build_simple()?;
 
-    // Create a tracing subscriber with the configured tracer
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer.clone());
-
-    // Use the tracing subscriber `Registry`, or any other subscriber
-    // that impls `LookupSpan`
-    let _collector = Registry::default().with(telemetry).try_init()?;
+    let tracer = trace_provider.tracer("gh-action-trace", Some(env!("CARGO_PKG_VERSION")));
 
     // List workflows
     let workflows = instance
@@ -83,7 +86,7 @@ async fn main() -> Result<()> {
                 .send()
                 .await?;
 
-            let mut last_end_time = run.created_at;
+            let mut last_end_time = run.created_at.unwrap_or(chrono::Utc::now());
 
             // Send a Trace for this Run
             for job in jobs {
@@ -96,7 +99,7 @@ async fn main() -> Result<()> {
                     .with_trace_id(opentelemetry::trace::TraceId::from_hex(
                         run.id.to_string().as_str(),
                     ))
-                    .with_start_time(job.started_at)
+                    .with_start_time(job.started_at.unwrap())
                     .with_end_time(job.completed_at.unwrap())
                     .with_attributes(value_to_vec(&serde_json::to_value(&job).unwrap()))
                     .with_status_message(job.status.to_string());
@@ -121,7 +124,10 @@ async fn main() -> Result<()> {
                 .with_trace_id(opentelemetry::trace::TraceId::from_hex(
                     run.id.to_string().as_str(),
                 ))
-                .with_start_time(run.created_at)
+                .with_start_time(run.created_at.unwrap_or_else(|| {
+                    println!("No created_at for run {}", run.id);
+                    chrono::Utc::now()
+                }))
                 .with_end_time(last_end_time)
                 .with_attributes(value_to_vec(&serde_json::to_value(&run).unwrap()));
 

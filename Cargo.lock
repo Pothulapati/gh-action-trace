@@ -770,7 +770,7 @@ dependencies = [
 [[package]]
 name = "octocrab"
 version = "0.12.0"
-source = "git+https://github.com/pothulapati/octocrab?branch=tarun/working#a09189932700ddba10e4f4ed7658f603b48449e6"
+source = "git+https://github.com/pothulapati/octocrab?rev=0cbabe89b5df7b1cbf8606beb77d92a822282a7d#0cbabe89b5df7b1cbf8606beb77d92a822282a7d"
 dependencies = [
  "arc-swap",
  "async-trait",
