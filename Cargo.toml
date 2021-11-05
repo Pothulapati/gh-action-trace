@@ -6,8 +6,7 @@ edition = "2021"
 
 
 [dependencies]
-# use this fork, until PR's are merged
-octocrab = { git = 'https://github.com/pothulapati/octocrab', rev = '0cbabe89b5df7b1cbf8606beb77d92a822282a7d' }
+octocrab = {git="https://github.com/XAMPPRocky/octocrab", rev="13838dcf6526c14b1789cb80918900b4f5254689"}
 tokio = { version = "1.12.0", features = ["full"] }
 anyhow = "1.0"
 tracing = "0.1"

@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
         let runs = instance
             .workflows(opts.owner.clone(), opts.repo.clone())
             .list_runs(workflow.id.to_string())
-            .exclude_pull_requests(true)
+            //.exclude_pull_requests(true)
             .send()
             .await?;
         println!(
@@ -80,18 +80,23 @@ async fn main() -> Result<()> {
 
         // List Jobs for each workflow
         for run in runs {
-            let jobs = instance
+            let job_result = instance
                 .workflows(opts.owner.clone(), opts.repo.clone())
                 .list_jobs(run.id)
                 .send()
-                .await?;
+                .await;
 
-            let mut last_end_time = run.created_at.unwrap_or(chrono::Utc::now());
+            if let Err(_) = job_result {
+                println!("Err retrieving jobs for {} workflow run", run.id);
+                continue;
+            }
+
+            let mut last_end_time = run.created_at;
 
             // Send a Trace for this Run
-            for job in jobs {
+            for job in job_result.unwrap() {
                 // Send a span for each job
-                let builder = tracer
+                let mut builder = tracer
                     .span_builder(job.name.clone())
                     .with_span_id(opentelemetry::trace::SpanId::from_hex(
                         job.id.to_string().as_str(),
@@ -99,10 +104,13 @@ async fn main() -> Result<()> {
                     .with_trace_id(opentelemetry::trace::TraceId::from_hex(
                         run.id.to_string().as_str(),
                     ))
-                    .with_start_time(job.started_at.unwrap())
-                    .with_end_time(job.completed_at.unwrap())
+                    .with_start_time(job.started_at)
                     .with_attributes(value_to_vec(&serde_json::to_value(&job).unwrap()))
                     .with_status_message(job.status.to_string());
+                // Attach end time only if its not None
+                if let Some(completed_at) = job.completed_at {
+                    builder = builder.with_end_time(completed_at);
+                }
 
                 tracer.build(builder);
 
@@ -124,10 +132,7 @@ async fn main() -> Result<()> {
                 .with_trace_id(opentelemetry::trace::TraceId::from_hex(
                     run.id.to_string().as_str(),
                 ))
-                .with_start_time(run.created_at.unwrap_or_else(|| {
-                    println!("No created_at for run {}", run.id);
-                    chrono::Utc::now()
-                }))
+                .with_start_time(run.created_at)
                 .with_end_time(last_end_time)
                 .with_attributes(value_to_vec(&serde_json::to_value(&run).unwrap()));
 
