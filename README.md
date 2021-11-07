@@ -26,17 +26,17 @@ a GitHub token through the `--token` flag for the binary to not be rate-limited.
 
 ```bash
 $ gh-action-trace --owner linkerd --repo linkerd2 --token <GITHUB_TOKEN>
-Processing 30 runs out of 640 for workflow CI
-Processing 13 runs out of 13 for workflow Coverage
-Processing 30 runs out of 1394 for workflow CodeQL
-Processing 30 runs out of 4107 for workflow Integration tests
-Processing 30 runs out of 3294 for workflow KinD integration
-Processing 30 runs out of 580 for workflow Lock Threads
-Processing 30 runs out of 175 for workflow Policy Controller
-Processing 30 runs out of 151 for workflow Release
-Processing 30 runs out of 7456 for workflow Static checks
-Processing 30 runs out of 7402 for workflow Unit tests
-Processing 30 runs out of 1262 for workflow CI
+[1/11]   Completed workflow CI
+[2/11]   Completed workflow Coverage
+[3/11]   Completed workflow CodeQL
+[4/11]   Completed workflow Integration tests
+[5/11]   Completed workflow KinD integration
+[6/11]   Completed workflow Lock Threads
+[7/11]   Completed workflow Policy Controller
+[8/11]   Completed workflow Release
+[9/11]   Completed workflow Static checks
+[10/11]   Completed workflow Unit tests
+[11/11]   Completed workflow CI
 ```
 
 You should be able to see traces in the Jaeger UI. :)

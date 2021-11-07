@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 use opentelemetry::trace::Tracer;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
@@ -41,6 +42,10 @@ async fn main() -> Result<()> {
         }
     }
 
+    let spinner_style = ProgressStyle::default_spinner()
+        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+        .template("{prefix:.bold.dim} {spinner} {wide_msg}");
+
     // Initialize octocrab instance
     let mut instance = octocrab::Octocrab::builder().build()?;
     if let Some(token) = opts.token {
@@ -62,8 +67,10 @@ async fn main() -> Result<()> {
         .workflows(opts.owner.clone(), opts.repo.clone())
         .list()
         .send()
-        .await?;
-    for workflow in &workflows {
+        .await?
+        .into_iter();
+
+    for (i, workflow) in workflows.clone().enumerate() {
         // TODO: Process more runs
         let runs = instance
             .workflows(opts.owner.clone(), opts.repo.clone())
@@ -71,12 +78,15 @@ async fn main() -> Result<()> {
             //.exclude_pull_requests(true)
             .send()
             .await?;
-        println!(
-            "Processing {} runs out of {} for workflow {}",
-            runs.items.len(),
-            runs.total_count.unwrap_or(0),
-            workflow.name,
-        );
+        let pb = ProgressBar::new(runs.items.len() as u64)
+            .with_style(spinner_style.clone())
+            .with_prefix(format!("[{}/{}]", i + 1, workflows.len()))
+            .with_message(format!(
+                "Processing {} runs out of {} for workflow {}",
+                runs.items.len(),
+                runs.total_count.unwrap_or(0),
+                workflow.name,
+            ));
 
         // List Jobs for each workflow
         for run in runs {
@@ -120,7 +130,6 @@ async fn main() -> Result<()> {
                         last_end_time = completed_at;
                     }
                 }
-
                 // TODO: Send a span for each step?
             }
 
@@ -137,9 +146,10 @@ async fn main() -> Result<()> {
                 .with_attributes(value_to_vec(&serde_json::to_value(&run).unwrap()));
 
             tracer.build(builder);
+            pb.inc(1);
         }
+        pb.finish_with_message(format!("Completed workflow {}", workflow.name));
     }
-
     return Ok(());
 }
 
