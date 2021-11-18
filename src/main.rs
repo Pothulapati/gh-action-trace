@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
+use octocrab::models::workflows::Run;
 use opentelemetry::trace::Tracer;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
@@ -25,6 +26,9 @@ struct Opts {
     /// cause timeouts
     #[clap(short, long)]
     token: Option<String>,
+    /// Number of runs to retrieve per workflow. Defaults to 30
+    #[clap(long, default_value = "30")]
+    runs: u32,
 }
 
 #[tokio::main]
@@ -71,20 +75,21 @@ async fn main() -> Result<()> {
         .into_iter();
 
     for (i, workflow) in workflows.clone().enumerate() {
-        // TODO: Process more runs
-        let runs = instance
-            .workflows(opts.owner.clone(), opts.repo.clone())
-            .list_runs(workflow.id.to_string())
-            //.exclude_pull_requests(true)
-            .send()
-            .await?;
-        let pb = ProgressBar::new(runs.items.len() as u64)
+        let runs = retrieve_runs(
+            opts.runs,
+            &instance,
+            &workflow.id.to_string(),
+            &opts.owner,
+            &opts.repo,
+        )
+        .await?;
+
+        let pb = ProgressBar::new(runs.len() as u64)
             .with_style(spinner_style.clone())
             .with_prefix(format!("[{}/{}]", i + 1, workflows.len()))
             .with_message(format!(
-                "Processing {} runs out of {} for workflow {}",
-                runs.items.len(),
-                runs.total_count.unwrap_or(0),
+                "Processing {} runs for workflow {}",
+                runs.len(),
                 workflow.name,
             ));
 
@@ -93,6 +98,8 @@ async fn main() -> Result<()> {
             let job_result = instance
                 .workflows(opts.owner.clone(), opts.repo.clone())
                 .list_jobs(run.id)
+                // set max
+                .per_page(100)
                 .send()
                 .await;
 
@@ -151,6 +158,49 @@ async fn main() -> Result<()> {
         pb.finish_with_message(format!("Completed workflow {}", workflow.name));
     }
     return Ok(());
+}
+
+async fn retrieve_runs(
+    mut n: u32,
+    instance: &octocrab::Octocrab,
+    workflow: &str,
+    owner: &str,
+    repo: &str,
+) -> Result<Vec<Run>> {
+    let mut runs = Vec::new();
+    let mut page: u32 = 1;
+    loop {
+        // Break when all are retrieved
+        if n == 0 {
+            break;
+        }
+
+        let mut per_page = 100;
+        if n <= per_page {
+            per_page = n;
+        }
+
+        let mut runs_page = instance
+            .workflows(owner, repo)
+            .list_runs(workflow)
+            .page(page)
+            // per_page is always <= 100
+            .per_page(per_page as u8)
+            .send()
+            .await?;
+
+        if runs_page.items.is_empty() {
+            // Completed all?
+            break;
+        }
+
+        if runs_page.items.len() > 0 {
+            n = n - (runs_page.items.len() as u32);
+        }
+        page = page + 1;
+        runs.append(&mut runs_page.items);
+    }
+    Ok(runs)
 }
 
 // value_to_vec converts a serde Value into a Vec of KeyValue
