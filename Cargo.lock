@@ -807,8 +807,9 @@ dependencies = [
 
 [[package]]
 name = "octocrab"
-version = "0.13.0"
-source = "git+https://github.com/XAMPPRocky/octocrab?rev=13838dcf6526c14b1789cb80918900b4f5254689#13838dcf6526c14b1789cb80918900b4f5254689"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ec64c900e736f4055205e519c44f5ee30e184167e7a80655c789d5a5bd0ac2b"
 dependencies = [
  "arc-swap",
  "async-trait",

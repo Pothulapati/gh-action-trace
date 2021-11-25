@@ -82,7 +82,8 @@ async fn main() -> Result<()> {
             &opts.owner,
             &opts.repo,
         )
-        .await?;
+        .await
+        .unwrap();
 
         let pb = ProgressBar::new(runs.len() as u64)
             .with_style(spinner_style.clone())
@@ -121,7 +122,7 @@ async fn main() -> Result<()> {
                     .with_trace_id(opentelemetry::trace::TraceId::from_hex(
                         run.id.to_string().as_str(),
                     ))
-                    .with_start_time(job.started_at)
+                    .with_start_time(job.started_at.unwrap())
                     .with_attributes(value_to_vec(&serde_json::to_value(&job).unwrap()))
                     .with_status_message(job.status.to_string());
                 // Attach end time only if its not None
