@@ -7,7 +7,7 @@ description = "gh-action-trace is a CLI to create traces for GitHub Action runs 
 readme = "README.md"
 repository = "https://github.com/Pothulapati/gh-action-trace"
 license = "MIT"
-keywords = ["traces", "jaeger", "github", "actions", "github-actions", "CI", "continuous-integration"]
+keywords = ["traces", "jaeger", "github-actions", "CI", "continuous-integration"]
 categories = ["command-line-utilities", "development-tools::debugging"]
 
 [dependencies]
