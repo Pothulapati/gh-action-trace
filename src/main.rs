@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use octocrab::models::workflows::Run;
 use opentelemetry::trace::Tracer;
 use opentelemetry::trace::TracerProvider;
@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
             }
         }
     }
-
+    let m = MultiProgress::new();
     let spinner_style = ProgressStyle::default_spinner()
         .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
         .template("{prefix:.bold.dim} {spinner} {wide_msg}");
@@ -75,90 +75,118 @@ async fn main() -> Result<()> {
         .into_iter();
 
     for (i, workflow) in workflows.clone().enumerate() {
-        let runs = retrieve_runs(
+        // Create a new progress bar for each workflow
+        let pb = m.add(
+            ProgressBar::new(128)
+                .with_style(spinner_style.clone())
+                .with_prefix(format!("[{}/{}]", i + 1, workflows.len())),
+        );
+
+        tokio::spawn(process_workflow(
+            instance.clone(),
+            tracer.clone(),
+            pb,
             opts.runs,
-            &instance,
-            &workflow.id.to_string(),
-            &opts.owner,
-            &opts.repo,
-        )
-        .await
-        .unwrap();
+            workflow.clone(),
+            opts.owner.clone(),
+            opts.repo.clone(),
+        ));
+    }
 
-        let pb = ProgressBar::new(runs.len() as u64)
-            .with_style(spinner_style.clone())
-            .with_prefix(format!("[{}/{}]", i + 1, workflows.len()))
-            .with_message(format!(
-                "Processing {} runs for workflow {}",
-                runs.len(),
-                workflow.name,
-            ));
+    m.join()?;
+    return Ok(());
+}
 
-        // List Jobs for each workflow
-        for run in runs {
-            let job_result = instance
-                .workflows(opts.owner.clone(), opts.repo.clone())
-                .list_jobs(run.id)
-                // set max
-                .per_page(100)
-                .send()
-                .await;
+async fn process_workflow(
+    instance: octocrab::Octocrab,
+    tracer: opentelemetry::sdk::trace::Tracer,
+    pb: ProgressBar,
+    runs: u32,
+    workflow: octocrab::models::workflows::WorkFlow,
+    owner: String,
+    repo: String,
+) -> Result<()> {
+    let runs = retrieve_runs(
+        runs,
+        &instance,
+        &workflow.id.to_string(),
+        owner.as_str(),
+        repo.as_str(),
+    )
+    .await
+    .unwrap();
 
-            if let Err(_) = job_result {
-                println!("Err retrieving jobs for {} workflow run", run.id);
-                continue;
-            }
+    pb.set_message(format!(
+        "Processing {} runs for workflow {}",
+        runs.len(),
+        workflow.name,
+    ));
+    pb.set_length(runs.len() as u64);
 
-            let mut last_end_time = run.created_at;
+    // List Jobs for each workflow
+    for run in runs {
+        let job_result = instance
+            .workflows(owner.clone(), repo.clone())
+            .list_jobs(run.id)
+            // set max
+            .per_page(100)
+            .send()
+            .await;
 
-            // Send a Trace for this Run
-            for job in job_result.unwrap() {
-                // Send a span for each job
-                let mut builder = tracer
-                    .span_builder(job.name.clone())
-                    .with_span_id(opentelemetry::trace::SpanId::from_hex(
-                        job.id.to_string().as_str(),
-                    ))
-                    .with_trace_id(opentelemetry::trace::TraceId::from_hex(
-                        run.id.to_string().as_str(),
-                    ))
-                    .with_start_time(job.started_at.unwrap())
-                    .with_attributes(value_to_vec(&serde_json::to_value(&job).unwrap()))
-                    .with_status_message(job.status.to_string());
-                // Attach end time only if its not None
-                if let Some(completed_at) = job.completed_at {
-                    builder = builder.with_end_time(completed_at);
-                }
+        if let Err(_) = job_result {
+            println!("Err retrieving jobs for {} workflow run", run.id);
+            continue;
+        }
 
-                tracer.build(builder);
+        let mut last_end_time = run.created_at;
 
-                // Update last_end_time
-                if let Some(completed_at) = job.completed_at {
-                    if completed_at > last_end_time {
-                        last_end_time = completed_at;
-                    }
-                }
-                // TODO: Send a span for each step?
-            }
-
-            let builder = tracer
-                .span_builder(run.name.clone())
+        // Send a Trace for this Run
+        for job in job_result.unwrap() {
+            // Send a span for each job
+            let mut builder = tracer
+                .span_builder(job.name.clone())
                 .with_span_id(opentelemetry::trace::SpanId::from_hex(
-                    run.id.to_string().as_str(),
+                    job.id.to_string().as_str(),
                 ))
                 .with_trace_id(opentelemetry::trace::TraceId::from_hex(
                     run.id.to_string().as_str(),
                 ))
-                .with_start_time(run.created_at)
-                .with_end_time(last_end_time)
-                .with_attributes(value_to_vec(&serde_json::to_value(&run).unwrap()));
+                .with_start_time(job.started_at.unwrap())
+                .with_attributes(value_to_vec(&serde_json::to_value(&job).unwrap()))
+                .with_status_message(job.status.to_string());
+            // Attach end time only if its not None
+            if let Some(completed_at) = job.completed_at {
+                builder = builder.with_end_time(completed_at);
+            }
 
             tracer.build(builder);
-            pb.inc(1);
+
+            // Update last_end_time
+            if let Some(completed_at) = job.completed_at {
+                if completed_at > last_end_time {
+                    last_end_time = completed_at;
+                }
+            }
+            // TODO: Send a span for each step?
         }
-        pb.finish_with_message(format!("Completed workflow {}", workflow.name));
+
+        let builder = tracer
+            .span_builder(run.name.clone())
+            .with_span_id(opentelemetry::trace::SpanId::from_hex(
+                run.id.to_string().as_str(),
+            ))
+            .with_trace_id(opentelemetry::trace::TraceId::from_hex(
+                run.id.to_string().as_str(),
+            ))
+            .with_start_time(run.created_at)
+            .with_end_time(last_end_time)
+            .with_attributes(value_to_vec(&serde_json::to_value(&run).unwrap()));
+
+        tracer.build(builder);
+        pb.inc(1);
     }
-    return Ok(());
+    pb.finish_with_message(format!("Completed workflow {}", workflow.name));
+    Ok(())
 }
 
 async fn retrieve_runs(
