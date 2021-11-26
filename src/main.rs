@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     }
     let m = MultiProgress::new();
     let spinner_style = ProgressStyle::default_spinner()
-        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+        .tick_chars("⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈✔")
         .template("{prefix:.bold.dim} {spinner} {wide_msg}");
 
     // Initialize octocrab instance
