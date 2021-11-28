@@ -46,9 +46,9 @@ async fn main() -> Result<()> {
         }
     }
     let m = MultiProgress::new();
-    let spinner_style = ProgressStyle::default_spinner()
-        .tick_chars("⠁⠁⠉⠙⠚⠒⠂⠂⠒⠲⠴⠤⠄⠄⠤⠠⠠⠤⠦⠖⠒⠐⠐⠒⠓⠋⠉⠈⠈✔")
-        .template("{prefix:.bold.dim} {spinner} {wide_msg}");
+    let spinner_style = ProgressStyle::default_bar()
+        .progress_chars("=> ")
+        .template("{wide_msg} {pos}/{len} [{bar:40}] ({eta})");
 
     // Initialize octocrab instance
     let mut instance = octocrab::Octocrab::builder().build()?;
@@ -116,11 +116,7 @@ async fn process_workflow(
     .await
     .unwrap();
 
-    pb.set_message(format!(
-        "Processing {} runs for workflow {}",
-        runs.len(),
-        workflow.name,
-    ));
+    pb.set_message(format!("Processing workflow/{}", workflow.name,));
     pb.set_length(runs.len() as u64);
 
     // List Jobs for each workflow
