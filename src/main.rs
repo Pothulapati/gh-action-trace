@@ -11,7 +11,7 @@ use opentelemetry::KeyValue;
 /// intended to be run as a standalone binary.
 #[derive(Parser)]
 #[clap(
-    version = "0.1.0",
+    version = "0.2.0",
     author = "Tarun Pothulapati <tarunpothulapati@outlook.com>"
 )]
 struct Opts {

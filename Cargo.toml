@@ -1,6 +1,6 @@
 [package]
 name = "gh-action-trace"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Tarun Pothulapati <tarunpothulapati@outlook.com>"]
 edition = "2021"
 description = "gh-action-trace is a CLI to create traces for GitHub Action runs by retrieving Action runs metadata from the GitHub API"
