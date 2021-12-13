@@ -25,18 +25,18 @@ binary should work without a GitHub token, It is **recommended** to pass
 a GitHub token through the `--token` flag for the binary to not be rate-limited.
 
 ```bash
-$ gh-action-trace --owner linkerd --repo linkerd2 --token <GITHUB_TOKEN>
-[1/11]   Completed workflow CI
-[2/11]   Completed workflow Coverage
-[3/11]   Completed workflow CodeQL
-[4/11]   Completed workflow Integration tests
-[5/11]   Completed workflow KinD integration
-[6/11]   Completed workflow Lock Threads
-[7/11]   Completed workflow Policy Controller
-[8/11]   Completed workflow Release
-[9/11]   Completed workflow Static checks
-[10/11]   Completed workflow Unit tests
-[11/11]   Completed workflow CI
+$ gh-action-trace --owner linkerd --repo linkerd2 --runs 100 --token <GITHUB_TOKEN>
+Completed workflow CI                                                         10/10 [========================================] (0s)
+Completed workflow Coverage                                                   10/10 [========================================] (0s)
+Completed workflow CodeQL                                                     10/10 [========================================] (0s)
+Completed workflow Integration tests                                          10/10 [========================================] (0s)
+Completed workflow KinD integration                                           10/10 [========================================] (0s)
+Completed workflow Lock Threads                                               10/10 [========================================] (0s)
+Completed workflow Policy Controller                                          10/10 [========================================] (0s)
+Completed workflow Release                                                    10/10 [========================================] (0s)
+Completed workflow Static checks                                              10/10 [========================================] (0s)
+Completed workflow Unit tests                                                 10/10 [========================================] (0s)
+Completed workflow CI                                                         10/10 [========================================] (0s)
 ```
 
 You should be able to see traces in the Jaeger UI. :)
